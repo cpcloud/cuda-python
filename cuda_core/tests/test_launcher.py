@@ -5,10 +5,6 @@ import ctypes
 
 import helpers
 
-try:
-    import cupy as cp
-except ImportError:
-    cp = None
 import numpy as np
 import pytest
 from conftest import skipif_need_cuda_headers
@@ -271,7 +267,6 @@ def test_cooperative_launch():
     s.sync()
 
 
-@pytest.mark.skipif(cp is None, reason="cupy not installed")
 @pytest.mark.parametrize(
     "memory_resource_class",
     [
@@ -287,6 +282,7 @@ def test_cooperative_launch():
 )
 def test_launch_with_buffers_allocated_by_memory_resource(init_cuda, memory_resource_class):
     """Test that kernels can access memory allocated by memory resources."""
+    cp = pytest.importorskip("cupy")
     dev = Device()
     dev.set_current()
     stream = dev.create_stream()

@@ -2,14 +2,6 @@
 #
 # SPDX-License-Identifier: LicenseRef-NVIDIA-SOFTWARE-LICENSE
 
-try:
-    import cupy as cp
-except ImportError:
-    cp = None
-try:
-    from numba import cuda as numba_cuda
-except ImportError:
-    numba_cuda = None
 import numpy as np
 import pytest
 
@@ -52,7 +44,7 @@ def convert_strides_to_counts(strides, itemsize):
 
 
 @pytest.mark.parametrize(
-    "in_arr,",
+    "in_arr",
     (
         np.empty(3, dtype=np.int32),
         np.empty((6, 6), dtype=np.float64)[::2, ::2],
@@ -98,41 +90,42 @@ class TestViewCPU:
         assert view.readonly is not in_arr.flags.writeable
 
 
-def gpu_array_samples():
-    # TODO: this function would initialize the device at test collection time
-    samples = []
-    if cp is not None:
-        samples += [
-            (cp.empty(3, dtype=cp.complex64), False),
-            (cp.empty((6, 6), dtype=cp.float64)[::2, ::2], True),
-            (cp.empty((3, 4), order="F"), True),
-        ]
-    # Numba's device_array is the only known array container that does not
-    # support DLPack (so that we get to test the CAI coverage).
-    if numba_cuda is not None:
-        samples += [
-            (numba_cuda.device_array((2,), dtype=np.int8), False),
-            (numba_cuda.device_array((4, 2), dtype=np.float32), True),
-        ]
-    return samples
-
-
 def gpu_array_ptr(arr):
-    if cp is not None and isinstance(arr, cp.ndarray):
+    try:
         return arr.data.ptr
-    if numba_cuda is not None and isinstance(arr, numba_cuda.cudadrv.devicearray.DeviceNDArray):
-        return arr.device_ctypes_pointer.value
-    raise NotImplementedError(f"{arr=}")
+    except AttributeError:
+        try:
+            return arr.device_ctypes_pointer.value
+        except AttributeError as e:
+            raise NotImplementedError(f"{arr=}") from e
 
 
-@pytest.mark.parametrize("in_arr,use_stream", (*gpu_array_samples(),))
+# TODO: this function would initialize the device at test collection time
+# Numba's device_array is the only known array container that does not
+# support DLPack (so that we get to test the CAI coverage).
+gpu_array_samples = pytest.mark.parametrize(
+    ("module", "in_arr_func", "use_stream"),
+    [
+        ("cupy", lambda cp: cp.empty(3, dtype=cp.complex64), False),
+        ("cupy", lambda cp: cp.empty((6, 6), dtype=cp.float64)[::2, ::2], True),
+        ("cupy", lambda cp: cp.empty((3, 4), order="F"), True),
+        ("numba_cuda", lambda nc: nc.device_array((2,), dtype=np.int8), False),
+        ("numba_cuda", lambda nc: nc.device_array((4, 2), dtype=np.float32), True),
+    ],
+)
+
+
+@gpu_array_samples
 class TestViewGPU:
-    def test_args_viewable_as_strided_memory_gpu(self, in_arr, use_stream):
+    def test_args_viewable_as_strided_memory_gpu(self, module, in_arr_func, use_stream):
+        mod = pytest.importorskip(module)
         # TODO: use the device fixture?
         dev = Device()
         dev.set_current()
         # This is the consumer stream
         s = dev.create_stream() if use_stream else None
+
+        in_arr = in_arr_func(mod)
 
         @args_viewable_as_strided_memory((0,))
         def my_func(arr):
@@ -141,13 +134,15 @@ class TestViewGPU:
 
         my_func(in_arr)
 
-    def test_strided_memory_view_cpu(self, in_arr, use_stream):
+    def test_strided_memory_view_cpu(self, module, in_arr_func, use_stream):
+        mod = pytest.importorskip(module)
         # TODO: use the device fixture?
         dev = Device()
         dev.set_current()
         # This is the consumer stream
         s = dev.create_stream() if use_stream else None
 
+        in_arr = in_arr_func(mod)
         view = StridedMemoryView(in_arr, stream_ptr=s.handle if s else -1)
         self._check_view(view, in_arr, dev)
 
@@ -167,16 +162,18 @@ class TestViewGPU:
         # can't test view.readonly with CuPy or Numba...
 
 
-@pytest.mark.skipif(cp is None, reason="CuPy is not installed")
-@pytest.mark.parametrize("in_arr,use_stream", (*gpu_array_samples(),))
+@gpu_array_samples
 class TestViewCudaArrayInterfaceGPU:
-    def test_cuda_array_interface_gpu(self, in_arr, use_stream):
+    def test_cuda_array_interface_gpu(self, module, in_arr_func, use_stream):
+        mod = pytest.importorskip(module)
         # TODO: use the device fixture?
+
         dev = Device()
         dev.set_current()
         # This is the consumer stream
         s = dev.create_stream() if use_stream else None
 
+        in_arr = in_arr_func(mod)
         # The usual path in `StridedMemoryView` prefers the DLPack interface
         # over __cuda_array_interface__, so we call `view_as_cai` directly
         # here so we can test the CAI code path.
