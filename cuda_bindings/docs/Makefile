@@ -9,7 +9,7 @@
 SPHINXOPTS    ?= -j auto
 SPHINXBUILD   ?= sphinx-build
 SOURCEDIR     = source
-BUILDDIR      = build/html/${SPHINX_CUDA_BINDINGS_VER}
+BUILDDIR      = build/html/${SPHINX_PKG_VER}
 
 # Put it first so that "make" without argument is like "make help".
 help:

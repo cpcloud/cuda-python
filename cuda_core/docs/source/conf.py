@@ -23,7 +23,7 @@ copyright = "2024, NVIDIA"
 author = "NVIDIA"
 
 # The full version, including alpha/beta/rc tags
-release = os.environ["SPHINX_CUDA_CORE_VER"]
+release = os.environ["SPHINX_PKG_VER"]
 
 
 # -- General configuration ---------------------------------------------------

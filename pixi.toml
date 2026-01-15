@@ -5,6 +5,7 @@
 [workspace]
 channels = ["conda-forge"]
 platforms = ["linux-64", "linux-aarch64", "win-64"]
+preview = ["pixi-build"]
 
 [feature.cu12.dependencies]
 [feature.cu13.dependencies]
@@ -12,6 +13,25 @@ platforms = ["linux-64", "linux-aarch64", "win-64"]
 [environments]
 cu12 = { features = ["cu12"] }
 cu13 = { features = ["cu13"] }
+
+cuda-pathfinder-docs = { features = ["docs", "cuda-pathfinder"] }
+cuda-bindings-docs = { features = ["docs", "cuda-bindings"] }
+cuda-core-docs = { features = ["docs", "cuda-core"] }
+all-docs = { features = ["docs", "all-pkgs"] }
+
+[feature.all-pkgs.dependencies]
+cuda-pathfinder = { path = "./cuda_pathfinder" }
+cuda-bindings = { path = "./cuda_bindings" }
+cuda-core = { path = "./cuda_core" }
+
+[feature.cuda-pathfinder.dependencies]
+cuda-pathfinder = { path = "./cuda_pathfinder" }
+
+[feature.cuda-bindings.dependencies]
+cuda-bindings = { path = "./cuda_bindings" }
+
+[feature.cuda-core.dependencies]
+cuda-core = { path = "./cuda_core" }
 
 [activation.env]
 PIXI_ENVIRONMENT_NAME = "${PIXI_ENVIRONMENT_NAME/default/cu13}"
@@ -47,4 +67,45 @@ depends-on = [
     { task = "test-pathfinder" },
     { task = "test-bindings" },
     { task = "test-core" },
+]
+
+[feature.docs.dependencies]
+sphinx = "<8.2"
+myst-parser = "*"
+numpy = "*"
+numpydoc = "*"
+pip = "*"
+pydata-sphinx-theme = "*"
+scipy = "*"
+sphinx-copybutton = "*"
+myst-nb = "*"
+enum_tools = "*"
+sphinx-toolbox = "*"
+make = "*"
+setuptools-scm = "*"
+
+[feature.docs.pypi-dependencies]
+nvidia-sphinx-theme = "*"
+
+[target.linux.tasks.build-all-docs]
+depends-on = [
+    { task = "build-pathfinder-docs", environment = "all-docs" },
+    { task = "build-bindings-docs", environment = "all-docs" },
+    { task = "build-core-docs", environment = "all-docs" },
+]
+
+[target.linux.tasks.build-pathfinder-docs]
+cmd = [
+    "$PIXI_PROJECT_ROOT/scripts/build_docs.sh",
+    "$PIXI_PROJECT_ROOT/cuda_pathfinder",
+]
+[target.linux.tasks.build-bindings-docs]
+cmd = [
+    "$PIXI_PROJECT_ROOT/scripts/build_docs.sh",
+    "$PIXI_PROJECT_ROOT/cuda_bindings",
+]
+[target.linux.tasks.build-core-docs]
+cmd = [
+    "$PIXI_PROJECT_ROOT/scripts/build_docs.sh",
+    "$PIXI_PROJECT_ROOT/cuda_core",
 ]
