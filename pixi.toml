@@ -8,10 +8,14 @@ platforms = ["linux-64", "linux-aarch64", "win-64"]
 
 [feature.cu12.dependencies]
 [feature.cu13.dependencies]
+[feature.add-nv-library.dependencies]
+python = "*"
+textual = ">=7,<8"
 
 [environments]
 cu12 = { features = ["cu12"] }
 cu13 = { features = ["cu13"] }
+add-nv-library = { features = ["add-nv-library"] }
 
 [activation.env]
 PIXI_ENVIRONMENT_NAME = "${PIXI_ENVIRONMENT_NAME/default/cu13}"
@@ -29,6 +33,10 @@ cmd = [
     "$PIXI_PROJECT_ROOT/cuda_pathfinder",
     "test",
 ]
+
+[target.linux.tasks.add-nv-library]
+cmd = ["python", "$PIXI_PROJECT_ROOT/toolshed/add-nv-library.py"]
+default-environment = "add-nv-library"
 
 [target.linux.tasks.test-bindings]
 cmd = [

@@ -520,4 +520,4 @@ DESCRIPTOR_CATALOG: tuple[DescriptorSpec, ...] = (
         linux_sonames=("libnvidia-ml.so.1",),
         windows_dlls=("nvml.dll",),
     ),
-)
+)  # END DESCRIPTOR_CATALOG
