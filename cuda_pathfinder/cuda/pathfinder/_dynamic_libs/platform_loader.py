@@ -31,36 +31,11 @@ class PlatformLoader(Protocol):
     def load_with_abs_path(self, desc: LibDescriptor, found_path: str, found_via: str | None = None) -> LoadedDL: ...
 
 
-_loader_impl: PlatformLoader
-
-
 if IS_WINDOWS:
     from cuda.pathfinder._dynamic_libs import load_dl_windows as _impl
-
-    class WindowsLoader:
-        def check_if_already_loaded_from_elsewhere(self, desc: LibDescriptor, have_abs_path: bool) -> LoadedDL | None:
-            return _impl.check_if_already_loaded_from_elsewhere(desc, have_abs_path)
-
-        def load_with_system_search(self, desc: LibDescriptor) -> LoadedDL | None:
-            return _impl.load_with_system_search(desc)
-
-        def load_with_abs_path(self, desc: LibDescriptor, found_path: str, found_via: str | None = None) -> LoadedDL:
-            return _impl.load_with_abs_path(desc, found_path, found_via)
-
-    _loader_impl = WindowsLoader()
 else:
     from cuda.pathfinder._dynamic_libs import load_dl_linux as _impl
 
-    class LinuxLoader:
-        def check_if_already_loaded_from_elsewhere(self, desc: LibDescriptor, have_abs_path: bool) -> LoadedDL | None:
-            return _impl.check_if_already_loaded_from_elsewhere(desc, have_abs_path)
-
-        def load_with_system_search(self, desc: LibDescriptor) -> LoadedDL | None:
-            return _impl.load_with_system_search(desc)
-
-        def load_with_abs_path(self, desc: LibDescriptor, found_path: str, found_via: str | None = None) -> LoadedDL:
-            return _impl.load_with_abs_path(desc, found_path, found_via)
-
-    _loader_impl = LinuxLoader()
-
-LOADER: PlatformLoader = _loader_impl
+# The platform modules already expose functions matching the PlatformLoader
+# protocol. Wrap in a simple namespace so callers use LOADER.method() syntax.
+LOADER: PlatformLoader = _impl
