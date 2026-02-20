@@ -3,10 +3,10 @@
 # SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-"""Terminal form for adding DescriptorSpec entries to descriptor_catalog.py.
+"""Helper for adding DescriptorSpec entries to descriptor_catalog.py.
 
-Uses a Textual form UI in interactive terminals. All fields can also be
-passed as CLI arguments for scripted / CI use.
+Default mode is plain CLI / prompt-driven input with no UI dependencies.
+An optional Textual UI is available via ``--ui`` when installed.
 """
 
 from __future__ import annotations
@@ -188,6 +188,63 @@ def _build_input_from_args(args: argparse.Namespace) -> DescriptorInput:
         anchor_rel_dirs_windows=_parse_csv_tuple(str(args.anchor_rel_dirs_windows)),
         requires_add_dll_directory=_parse_bool(str(args.requires_add_dll_directory)),
         requires_rtld_deepbind=_parse_bool(str(args.requires_rtld_deepbind)),
+    )
+
+
+def _prompt_text(label: str, default: str = "") -> str:
+    prompt = f"{label}: " if not default else f"{label} [{default}]: "
+    raw = input(prompt).strip()
+    if raw:
+        return raw
+    return default
+
+
+def _prompt_bool(label: str, default: bool) -> bool:
+    default_text = "true" if default else "false"
+    while True:
+        raw = _prompt_text(label, default_text)
+        try:
+            return _parse_bool(raw)
+        except ValueError:
+            print(f"Invalid boolean value: {raw!r}. Use true/false.", file=sys.stderr)
+
+
+def _bool_arg_or_default(args: argparse.Namespace, field: str, default: bool) -> bool:
+    raw = getattr(args, field)
+    if raw is None:
+        return default
+    return _parse_bool(str(raw))
+
+
+def _build_input_from_prompt(args: argparse.Namespace) -> DescriptorInput:
+    print("Interactive prompt mode (no UI). Press Ctrl+C to cancel.", file=sys.stderr)
+    name = _prompt_text("name", str(args.name or ""))
+    strategy = _prompt_text("strategy", str(args.strategy or "ctk"))
+    linux_sonames = _prompt_text("linux-sonames", str(args.linux_sonames or ""))
+    windows_dlls = _prompt_text("windows-dlls", str(args.windows_dlls or ""))
+    site_packages_linux = _prompt_text("site-packages-linux", str(args.site_packages_linux or ""))
+    site_packages_windows = _prompt_text("site-packages-windows", str(args.site_packages_windows or ""))
+    dependencies = _prompt_text("dependencies", str(args.dependencies or ""))
+    anchor_rel_dirs_linux = _prompt_text("anchor-rel-dirs-linux", str(args.anchor_rel_dirs_linux or "lib64,lib"))
+    anchor_rel_dirs_windows = _prompt_text("anchor-rel-dirs-windows", str(args.anchor_rel_dirs_windows or "bin/x64,bin"))
+
+    default_add_dll = _bool_arg_or_default(args, "requires_add_dll_directory", False)
+    default_deepbind = _bool_arg_or_default(args, "requires_rtld_deepbind", False)
+    requires_add_dll_directory = _prompt_bool("requires-add-dll-directory", default_add_dll)
+    requires_rtld_deepbind = _prompt_bool("requires-rtld-deepbind", default_deepbind)
+
+    return DescriptorInput(
+        name=name,
+        strategy=strategy,
+        linux_sonames=_parse_csv_tuple(linux_sonames),
+        windows_dlls=_parse_csv_tuple(windows_dlls),
+        site_packages_linux=_parse_csv_tuple(site_packages_linux),
+        site_packages_windows=_parse_csv_tuple(site_packages_windows),
+        dependencies=_parse_csv_tuple(dependencies),
+        anchor_rel_dirs_linux=_parse_csv_tuple(anchor_rel_dirs_linux),
+        anchor_rel_dirs_windows=_parse_csv_tuple(anchor_rel_dirs_windows),
+        requires_add_dll_directory=requires_add_dll_directory,
+        requires_rtld_deepbind=requires_rtld_deepbind,
     )
 
 
@@ -503,8 +560,9 @@ def _build_input_from_textual_form(args: argparse.Namespace) -> tuple[Descriptor
 
 
 def _build_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Terminal form for adding descriptor_catalog entries")
+    parser = argparse.ArgumentParser(description="Add descriptor_catalog entries (CLI or optional UI)")
     parser.add_argument("--catalog", type=Path, default=_default_catalog_path())
+    parser.add_argument("--ui", action="store_true", help="Use optional Textual UI form")
     parser.add_argument("--name")
     parser.add_argument("--strategy", choices=_VALID_STRATEGIES)
     parser.add_argument("--linux-sonames")
@@ -529,12 +587,19 @@ def run(argv: list[str]) -> int:
 
     if _all_form_fields_supplied(args):
         spec = _build_input_from_args(args)
-    else:
+    elif args.ui:
         spec, used_form = _build_input_from_textual_form(args)
-        if spec is None and used_form:
-            return 1
+        if spec is None and not used_form:
+            parser.error("--ui requires textual and an interactive terminal")
         if spec is None:
-            parser.error("Interactive terminal required (or pass all --fields on the CLI)")
+            return 1
+    else:
+        if not (sys.stdin.isatty() and sys.stdout.isatty()):
+            parser.error("Pass all --fields on the CLI (or run interactively, optionally with --ui)")
+        try:
+            spec = _build_input_from_prompt(args)
+        except (EOFError, KeyboardInterrupt):
+            return 1
 
     validate_descriptor_input(spec)
     apply_descriptor(args.catalog, spec, dry_run=args.dry_run)

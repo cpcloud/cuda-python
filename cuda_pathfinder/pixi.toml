@@ -17,7 +17,9 @@ pytest-repeat = "*"
 pytest-randomly = "*"
 
 [feature.add-nv-library.dependencies]
-rich = ">=13,<15"
+python = "*"
+
+[feature.add-nv-library-ui.dependencies]
 textual = ">=7,<8"
 
 [feature.cu12.system-requirements]
@@ -37,6 +39,7 @@ default = { features = ["cu13", "test"], solve-group = "default" }
 cu13 = { features = ["cu13", "test"], solve-group = "default" }
 cu12 = { features = ["cu12", "test"], solve-group = "cu12" }
 add-nv-library = { features = ["add-nv-library"], solve-group = "default" }
+add-nv-library-ui = { features = ["add-nv-library", "add-nv-library-ui"], solve-group = "default" }
 
 # TODO: check if these can be extracted from pyproject.toml
 [package]
@@ -60,8 +63,14 @@ cmd = ["pytest", "$PIXI_PROJECT_ROOT"]
 [target.linux.tasks.add-nv-library]
 cmd = ["python", "$PIXI_PROJECT_ROOT/../toolshed/add-nv-library.py"]
 
+[target.linux.tasks.add-nv-library-ui]
+cmd = ["python", "$PIXI_PROJECT_ROOT/../toolshed/add-nv-library.py", "--ui"]
+
 [target.win-64.tasks.test]
 cmd = ["pytest", "%PIXI_PROJECT_ROOT%"]
 
 [target.win-64.tasks.add-nv-library]
 cmd = ["python", "%PIXI_PROJECT_ROOT%\\..\\toolshed\\add-nv-library.py"]
+
+[target.win-64.tasks.add-nv-library-ui]
+cmd = ["python", "%PIXI_PROJECT_ROOT%\\..\\toolshed\\add-nv-library.py", "--ui"]

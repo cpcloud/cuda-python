@@ -10,12 +10,15 @@ platforms = ["linux-64", "linux-aarch64", "win-64"]
 [feature.cu13.dependencies]
 [feature.add-nv-library.dependencies]
 python = "*"
+
+[feature.add-nv-library-ui.dependencies]
 textual = ">=7,<8"
 
 [environments]
 cu12 = { features = ["cu12"] }
 cu13 = { features = ["cu13"] }
 add-nv-library = { features = ["add-nv-library"] }
+add-nv-library-ui = { features = ["add-nv-library", "add-nv-library-ui"] }
 
 [activation.env]
 PIXI_ENVIRONMENT_NAME = "${PIXI_ENVIRONMENT_NAME/default/cu13}"
@@ -37,6 +40,10 @@ cmd = [
 [target.linux.tasks.add-nv-library]
 cmd = ["python", "$PIXI_PROJECT_ROOT/toolshed/add-nv-library.py"]
 default-environment = "add-nv-library"
+
+[target.linux.tasks.add-nv-library-ui]
+cmd = ["python", "$PIXI_PROJECT_ROOT/toolshed/add-nv-library.py", "--ui"]
+default-environment = "add-nv-library-ui"
 
 [target.linux.tasks.test-bindings]
 cmd = [
