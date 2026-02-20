@@ -9,9 +9,6 @@ import sys
 from typing import TYPE_CHECKING
 
 from cuda.pathfinder._dynamic_libs.lib_descriptor import LIB_DESCRIPTORS
-
-if TYPE_CHECKING:
-    from cuda.pathfinder._dynamic_libs.lib_descriptor import LibDescriptor
 from cuda.pathfinder._dynamic_libs.load_dl_common import DynamicLibNotFoundError, LoadedDL, load_dependencies
 from cuda.pathfinder._dynamic_libs.platform_loader import LOADER
 from cuda.pathfinder._dynamic_libs.search_steps import (
@@ -20,6 +17,9 @@ from cuda.pathfinder._dynamic_libs.search_steps import (
     SearchContext,
     run_find_steps,
 )
+
+if TYPE_CHECKING:
+    from cuda.pathfinder._dynamic_libs.lib_descriptor import LibDescriptor
 
 # All libnames recognized by load_nvidia_dynamic_lib, across all categories
 # (CTK, third-party, driver).
