@@ -153,6 +153,8 @@ def test_apply_descriptor_dry_run_does_not_modify_file(tmp_path):
 def test_apply_descriptor_writes_file_when_not_dry_run(tmp_path):
     mod = _load_wizard_module()
     catalog = tmp_path / "descriptor_catalog.py"
-    catalog.write_text("DESCRIPTOR_CATALOG: tuple[DescriptorSpec, ...] = (\n)  # END DESCRIPTOR_CATALOG\n", encoding="utf-8")
+    catalog.write_text(
+        "DESCRIPTOR_CATALOG: tuple[DescriptorSpec, ...] = (\n)  # END DESCRIPTOR_CATALOG\n", encoding="utf-8"
+    )
     mod.apply_descriptor(catalog, _sample_descriptor(mod), dry_run=False)
     assert 'name="foo_lib"' in catalog.read_text(encoding="utf-8")
