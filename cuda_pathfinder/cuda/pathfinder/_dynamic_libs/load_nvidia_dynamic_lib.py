@@ -4,10 +4,12 @@
 from __future__ import annotations
 
 import functools
+import json
 import struct
 import sys
 from typing import TYPE_CHECKING
 
+from cuda.pathfinder._dynamic_libs.canary_probe_subprocess import probe_canary_abs_path_and_print_json
 from cuda.pathfinder._dynamic_libs.lib_descriptor import LIB_DESCRIPTORS
 from cuda.pathfinder._dynamic_libs.load_dl_common import DynamicLibNotFoundError, LoadedDL, load_dependencies
 from cuda.pathfinder._dynamic_libs.platform_loader import LOADER
@@ -15,8 +17,15 @@ from cuda.pathfinder._dynamic_libs.search_steps import (
     EARLY_FIND_STEPS,
     LATE_FIND_STEPS,
     SearchContext,
+    derive_ctk_root,
+    find_via_ctk_root,
     run_find_steps,
 )
+from cuda.pathfinder._dynamic_libs.supported_nvidia_libs import (
+    _CTK_ROOT_CANARY_ANCHOR_LIBNAMES,
+    _CTK_ROOT_CANARY_DISCOVERABLE_LIBNAMES,
+)
+from cuda.pathfinder._utils.spawned_process_runner import run_in_spawned_child_process
 
 if TYPE_CHECKING:
     from cuda.pathfinder._dynamic_libs.lib_descriptor import LibDescriptor
@@ -51,6 +60,48 @@ def _load_driver_lib_no_cache(desc: LibDescriptor) -> LoadedDL:
     )
 
 
+@functools.cache
+def _resolve_system_loaded_abs_path_in_subprocess(libname: str) -> str | None:
+    """Resolve a canary library's absolute path in a spawned child process."""
+    result = run_in_spawned_child_process(
+        probe_canary_abs_path_and_print_json,
+        args=(libname,),
+        timeout=10.0,
+        rethrow=True,
+    )
+
+    # Use the final non-empty line in case earlier output lines are emitted.
+    lines = [line for line in result.stdout.splitlines() if line.strip()]
+    if not lines:
+        raise RuntimeError(f"Canary probe child process produced no stdout payload for {libname!r}")
+    try:
+        payload = json.loads(lines[-1])
+    except json.JSONDecodeError:
+        raise RuntimeError(
+            f"Canary probe child process emitted invalid JSON payload for {libname!r}: {lines[-1]!r}"
+        ) from None
+    if isinstance(payload, str):
+        return payload
+    if payload is None:
+        return None
+    raise RuntimeError(f"Canary probe child process emitted unexpected payload for {libname!r}: {payload!r}")
+
+
+def _try_ctk_root_canary(ctx: SearchContext) -> str | None:
+    """Try CTK-root canary fallback for discoverable libraries."""
+    for canary_libname in _CTK_ROOT_CANARY_ANCHOR_LIBNAMES:
+        canary_abs_path = _resolve_system_loaded_abs_path_in_subprocess(canary_libname)
+        if canary_abs_path is None:
+            continue
+        ctk_root = derive_ctk_root(canary_abs_path)
+        if ctk_root is None:
+            continue
+        find = find_via_ctk_root(ctx, ctk_root)
+        if find is not None:
+            return find.abs_path
+    return None
+
+
 def _load_lib_no_cache(libname: str) -> LoadedDL:
     desc = LIB_DESCRIPTORS[libname]
 
@@ -81,6 +132,11 @@ def _load_lib_no_cache(libname: str) -> LoadedDL:
     find = run_find_steps(ctx, LATE_FIND_STEPS)
     if find is not None:
         return LOADER.load_with_abs_path(desc, find.abs_path, find.found_via)
+
+    if libname in _CTK_ROOT_CANARY_DISCOVERABLE_LIBNAMES:
+        canary_abs_path = _try_ctk_root_canary(ctx)
+        if canary_abs_path is not None:
+            return LOADER.load_with_abs_path(desc, canary_abs_path, "system-ctk-root")
 
     ctx.raise_not_found()
 
@@ -149,6 +205,13 @@ def load_nvidia_dynamic_lib(libname: str) -> LoadedDL:
         4. **Environment variables**
 
            - If set, use ``CUDA_HOME`` or ``CUDA_PATH`` (in that order).
+
+        5. **CTK root canary probe (discoverable libs only)**
+
+           - For selected libraries whose shared object doesn't reside on the
+             standard linker path (currently ``nvvm``), attempt to derive CTK
+             root by system-loading a well-known CTK canary library in a
+             subprocess and then searching relative to that root.
 
     **Driver libraries** (``"cuda"``, ``"nvml"``):
 
