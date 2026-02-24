@@ -21,10 +21,6 @@ from cuda.pathfinder._dynamic_libs.search_steps import (
     find_via_ctk_root,
     run_find_steps,
 )
-from cuda.pathfinder._dynamic_libs.supported_nvidia_libs import (
-    _CTK_ROOT_CANARY_ANCHOR_LIBNAMES,
-    _CTK_ROOT_CANARY_DISCOVERABLE_LIBNAMES,
-)
 from cuda.pathfinder._utils.spawned_process_runner import run_in_spawned_child_process
 
 if TYPE_CHECKING:
@@ -88,8 +84,8 @@ def _resolve_system_loaded_abs_path_in_subprocess(libname: str) -> str | None:
 
 
 def _try_ctk_root_canary(ctx: SearchContext) -> str | None:
-    """Try CTK-root canary fallback for discoverable libraries."""
-    for canary_libname in _CTK_ROOT_CANARY_ANCHOR_LIBNAMES:
+    """Try CTK-root canary fallback for descriptor-configured libraries."""
+    for canary_libname in ctx.desc.ctk_root_canary_anchor_libnames:
         canary_abs_path = _resolve_system_loaded_abs_path_in_subprocess(canary_libname)
         if canary_abs_path is None:
             continue
@@ -133,7 +129,7 @@ def _load_lib_no_cache(libname: str) -> LoadedDL:
     if find is not None:
         return LOADER.load_with_abs_path(desc, find.abs_path, find.found_via)
 
-    if libname in _CTK_ROOT_CANARY_DISCOVERABLE_LIBNAMES:
+    if desc.ctk_root_canary_anchor_libnames:
         canary_abs_path = _try_ctk_root_canary(ctx)
         if canary_abs_path is not None:
             return LOADER.load_with_abs_path(desc, canary_abs_path, "system-ctk-root")
