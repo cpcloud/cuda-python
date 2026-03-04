@@ -114,10 +114,21 @@ def create_window():
     """Open a pyglet window and return (window, gl_module)."""
     try:
         import pyglet
-        from pyglet.gl import gl as _gl
     except ImportError:
         print(
             "This example requires pyglet >= 2.0.\nInstall it with:  pip install pyglet",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    try:
+        from pyglet.gl import gl as _gl
+    except ImportError as exc:
+        print(
+            "pyglet is installed, but OpenGL could not be initialized.\n"
+            f"Underlying import error: {exc}\n"
+            "Ensure your system provides OpenGL runtime libraries (for example, libGL on Linux), "
+            "and that graphics/display support is available.",
             file=sys.stderr,
         )
         sys.exit(1)

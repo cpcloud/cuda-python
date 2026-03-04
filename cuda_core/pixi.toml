@@ -17,7 +17,6 @@ pytest = "*"
 pytest-benchmark = "*"
 pytest-randomly = "*"
 pytest-repeat = "*"
-pyglet = "*"
 
 [feature.cython-tests.dependencies]
 cython = ">=3.2,<3.3" # for tests that exercise APIs from cython
@@ -55,6 +54,16 @@ cuda = "13"
 [feature.cu13.dependencies]
 cuda-version = "13.1.*"
 
+[feature.examples.dependencies]
+cuda-core = { path = "." }
+
+[feature.examples.target.linux-64.dependencies]
+cupy = ">=14.0.1,<15"
+pytorch = ">=2.10.0,<3"
+cffi = ">=2.0.0,<3"
+pyglet = ">=2.0"
+libgl-devel = ">=1.7.0,<2"
+
 [feature.cu12.system-requirements]
 cuda = "12"
 
@@ -72,6 +81,7 @@ default = { features = [
     "cython-tests",
 ], solve-group = "default" }
 cu13 = { features = ["cu13", "test", "cython-tests"], solve-group = "default" }
+examples = { features = ["cu13", "examples"], solve-group = "examples" }
 cu12 = { features = ["cu12", "test", "cython-tests"], solve-group = "cu12" }
 
 # TODO: check if these can be extracted from pyproject.toml
