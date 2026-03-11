@@ -136,8 +136,6 @@ publish to PyPI.
      You can find it in the URL when viewing the run in the Actions tab
      (e.g. `https://github.com/NVIDIA/cuda-python/actions/runs/123456789`
      — the run ID is `123456789`).
-   - **build-ctk-ver**: the `cuda.build.version` from
-     [`ci/versions.yml`](../ci/versions.yml) (e.g. `13.1.1`)
    - **Which wheel index to publish to**: `testpypi`
 
 2. Wait for the workflow to complete.
